@@ -63,6 +63,7 @@ import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.database.ContentObserver;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
 import android.graphics.Outline;
@@ -241,6 +242,7 @@ public class VolumeDialogImpl implements VolumeDialog, Dumpable,
 
     private Window mWindow;
     private CustomDialog mDialog;
+    private TextView mCenterVolumeText;
     private ViewGroup mDialogView;
     private ViewGroup mDialogRowsViewContainer;
     private ViewGroup mDialogRowsView;
@@ -1947,6 +1949,11 @@ public class VolumeDialogImpl implements VolumeDialog, Dumpable,
                 row.addTouchListener();
             }
         }
+        VolumeRow activeRow = getActiveRow();
+        if (activeRow != null && activeRow.ss != null) {
+            int vlevel = activeRow.ss.muted ? 0 : activeRow.ss.level;
+            showCenterVolumeH(vlevel, activeRow.ss.levelMin, activeRow.ss.levelMax);
+        }
         Trace.endSection();
     }
 
@@ -2025,6 +2032,7 @@ public class VolumeDialogImpl implements VolumeDialog, Dumpable,
             return;
         }
         mIsAnimatingDismiss = true;
+        dismissCenterVolumeH();
         mDialogView.animate().cancel();
         mInteractor.onDialogDismissed();
         if (mShowing) {
@@ -2072,6 +2080,50 @@ public class VolumeDialogImpl implements VolumeDialog, Dumpable,
             }
         }
         Trace.endSection();
+    }
+
+    private void showCenterVolumeH(int level, int min, int max) {
+        if (mCenterVolumeText == null) {
+            mCenterVolumeText = new TextView(mContext);
+            mCenterVolumeText.setBackgroundResource(R.drawable.volume_center_bg);
+            mCenterVolumeText.setTextColor(Color.WHITE);
+            mCenterVolumeText.setTextSize(32);
+            mCenterVolumeText.setTypeface(Typeface.DEFAULT_BOLD);
+            mCenterVolumeText.setFontFeatureSettings("tnum");
+            mCenterVolumeText.setGravity(Gravity.CENTER);
+
+            float density = mContext.getResources().getDisplayMetrics().density;
+            int padH = (int) (24 * density);
+            int padV = (int) (16 * density);
+            mCenterVolumeText.setPadding(padH, padV, padH, padV);
+
+            WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    WindowManager.LayoutParams.TYPE_VOLUME_OVERLAY,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                            | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                            | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+                    PixelFormat.TRANSLUCENT);
+            lp.gravity = Gravity.CENTER;
+            lp.setTitle("VolumeCenterOverlay");
+
+            WindowManager wm = mContext.getSystemService(WindowManager.class);
+            if (wm != null) {
+                wm.addView(mCenterVolumeText, lp);
+            }
+        }
+
+        int range = max - min;
+        int percent = range > 0 ? Math.round((float) (level - min) * 100f / range) : 0;
+        mCenterVolumeText.setText(level + " (" + percent + "%)");
+        mCenterVolumeText.setVisibility(View.VISIBLE);
+    }
+
+    private void dismissCenterVolumeH() {
+        if (mCenterVolumeText != null) {
+            mCenterVolumeText.setVisibility(View.GONE);
+        }
     }
 
     private boolean isTv() {
@@ -2641,6 +2693,9 @@ public class VolumeDialogImpl implements VolumeDialog, Dumpable,
         updateVolumeRowSliderH(row, enableSlider, vlevel, max != row.slider.getMax());
         Trace.endSection();
         if (row.number != null) row.number.setText(Integer.toString(vlevel));
+        if (row == getActiveRow() && mShowing) {
+            showCenterVolumeH(vlevel, ss.levelMin, ss.levelMax);
+        }
     }
 
     private void updateAppVolumeRow(VolumeRow row) {
