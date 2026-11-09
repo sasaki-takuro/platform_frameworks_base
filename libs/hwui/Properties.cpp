@@ -160,6 +160,7 @@ bool Properties::load() {
     enablePartialUpdates = base::GetBoolProperty(PROPERTY_ENABLE_PARTIAL_UPDATES, true);
 
     filterOutTestOverhead = base::GetBoolProperty(PROPERTY_FILTER_TEST_OVERHEAD, false);
+    waitForGpuCompletion = base::GetBoolProperty("debug.hwui.wait_for_gpu_completion", false);
 
     skpCaptureEnabled = debuggingEnabled && base::GetBoolProperty(PROPERTY_CAPTURE_SKP_ENABLED, false);
 
